@@ -8,9 +8,9 @@
 -  timing;
 -  mouse and keyboard control;
 -  three memory management methods: segmentation, Buddy algorithm and paging; 
-- two  multitaksing methods: priority quene or advanced RR algorithm; 
-- 16bit color mode with 1024x768 resolution; 
-- windows management by sheet
+-  two  multitaksing methods: priority quene or advanced RR algorithm; 
+-  16bit color mode with 1024x768 resolution; 
+-  windows management by sheet
 -  basic file system.
 
 
@@ -19,15 +19,17 @@
 
 ​	qemu-system-i386 emulator(recommend), or a real computer.
 
+## Compile
 
+​	You can write/edit your own features in either C or Ensemble language, modify Makefile if necessary, and type ``make`` in !cons_nt.bat to compile use default compiler in z_tools.
 
 ## Run with Qemu
 
-​	type   n ``qemu-system-i386 -fda haribote.img`` in bash. or just tyoe ``make run`` and entry in !cons_nt.bat.
-
-
+​	cd into source dir, type   n ``qemu-system-i386 -fda haribote.img`` in bash. or just tyoe ``make run`` and entry in !cons_nt.bat.
 
 ## Documentation
 
 ​	There is a 117 pages doc in Chinese, contact adamzjk@foxmail.com for details.
+
+
 
