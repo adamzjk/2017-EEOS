@@ -23,7 +23,7 @@
 
 ​	You can write/edit your own features in either C or Ensemble language, modify Makefile if necessary, and type ``make`` in !cons_nt.bat to compile use default compiler in z_tools.
 
-​	Since default compiler is .exe file, Linux or macOS users may need other compilers. 
+​	Since default compiler is .exe file, Linux and macOS users may need other compilers. 
 
 ## Run with Qemu
 
