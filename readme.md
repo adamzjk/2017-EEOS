@@ -4,7 +4,14 @@
 
 ## Features
 
-​	Featuers include interrupt handling; timing; mouse and keyboard control; three memory management methods: segmentation, Buddy algorithm and paging; two  multitaksing methods: priority quene or advanced RR algorithm; 16bit color mode with 1024x768 resolution; windows management by sheet and basic file system.
+-  interrupt handling;
+-  timing;
+-  mouse and keyboard control;
+-  three memory management methods: segmentation, Buddy algorithm and paging; 
+- two  multitaksing methods: priority quene or advanced RR algorithm; 
+- 16bit color mode with 1024x768 resolution; 
+- windows management by sheet
+-  basic file system.
 
 
 
