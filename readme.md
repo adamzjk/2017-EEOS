@@ -23,9 +23,13 @@
 
 ​	You can write/edit your own features in either C or Ensemble language, modify Makefile if necessary, and type ``make`` in !cons_nt.bat to compile use default compiler in z_tools.
 
+​	Since default compiler is .exe file, Linux or macOS users may need other compilers. 
+
 ## Run with Qemu
 
-​	cd into source dir, type   n ``qemu-system-i386 -fda haribote.img`` in bash. or just tyoe ``make run`` and entry in !cons_nt.bat.
+​	For windows users, just type   ``make run`` in !cons_nt.bat, this will compile and boot OS with qemu emulator(using default compiler and qemu emulator from z_tools folder)
+
+​	For macOS or Linux users, you have to compile it with other compilers, download and install qemu, cd into source dir, type  ``qemu-system-i386 -fda haribote.img`` in bash.
 
 ## Documentation
 
