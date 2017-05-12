@@ -54,6 +54,14 @@ void console_task(struct SHEET *sheet, unsigned int memtotal)
 	cons.cur_c = -1;
 	*((int *) 0x0fec) = (int) &cons;
 
+	/* wzh */
+	cons.dir_info = (struct DIRINFO *)memman_alloc(memman, sizeof(struct DIRINFO));
+	cons.dir_info->adr_parent = 0;											//* 无父节点目录
+	cons.dir_info->adr_dir = (struct FILEINFO *) (ADR_DISKIMG + 0x002600);	//* 当前目录为根目录
+	cons.dir_info->clustno = 20;
+	cons.dir_info->maxsize = 224;							//* 根目录的finfo最大为224
+	sprintf(cons.dir_info->name, "ROOT");
+
 	fifo32_init(&task->fifo, 128, fifobuf, task);
 	timer = timer_alloc();
 	timer_init(timer, &task->fifo, 1);
@@ -208,8 +216,6 @@ void cons_runcmd(char *cmdline, struct CONSOLE *cons, int *fat, unsigned int mem
 		cmd_mem(cons, memtotal);
 	} else if (strcmp(cmdline, "cls") == 0) {
 		cmd_cls(cons);
-	} else if (strcmp(cmdline, "dir") == 0 || strcmp(cmdline, "ls") == 0) {
-		cmd_dir(cons);
 	} else if (strncmp(cmdline, "type ", 5) == 0) {
 		cmd_type(cons, fat, cmdline);
 	} else if(strcmp(cmdline,"create counter") == 0){
@@ -396,6 +402,35 @@ void cons_runcmd(char *cmdline, struct CONSOLE *cons, int *fat, unsigned int mem
 		*((int *)(task234->tss.esp + 8)) = memtotal;
 		task_run(task234, 2, 2); /* level=2, priority=2 */
 		fifo32_init(&task234->fifo, 128, cons_fifo, task234);
+	} else if (strncmp(cmdline, "mkf ", 4) == 0) {// wzh
+		cmd_mkf(cons, cmdline);
+		cons_newline(cons);
+	} else if (strcmp(cmdline, "dir a") == 0) {
+		cmd_dir(cons);
+	} else if (strcmp(cmdline, "dir") == 0 || strcmp(cmdline, "ls") == 0) {
+		cmd_ls(cons);
+	} else if (strncmp(cmdline, "mkd ", 4) == 0) {
+		cmd_mkd(cons, fat, cmdline);
+		cons_newline(cons);
+	} else if (strncmp(cmdline, "finf ", 5) == 0) {
+		cmd_finf(cons, cmdline);
+		cons_newline(cons);
+	} else if (strncmp(cmdline, "infc ", 5) == 0) {
+		cmd_infc(cons, cmdline);
+		cons_newline(cons);
+	} else if (strcmp(cmdline, "showfat") == 0) {
+		show_fat(cons, fat);
+		cons_newline(cons);
+	} else if (strcmp(cmdline, "test disk") == 0) {		//*2 test
+		test_disk(cons, fat);
+	} else if (strcmp(cmdline, "test encoding") == 0) {	//*2 test
+		cmd_fat_test(cons, fat);
+	} else if (strncmp(cmdline, "del ", 4) == 0) {
+		cmd_del(cons, fat, cmdline);
+		cons_newline(cons);
+	} else if (strncmp(cmdline, "cd ", 3) == 0) {
+		cmd_cd(cons, cmdline, fat);
+		cons_newline(cons);
 	} else if (cmdline[0] != 0) {
 		if (cmd_app(cons, fat, cmdline) == 0) {
 			/*不是命令，不是应用程序，也不是空行*/
@@ -539,32 +574,6 @@ void cmd_cls(struct CONSOLE *cons)
 	}
 	sheet_refresh(sheet, 8, 28, 8 + 240, 28 + 128);
 	cons->cur_y = 28;
-	return;
-}
-
-void cmd_dir(struct CONSOLE *cons)
-{
-	struct FILEINFO *finfo = (struct FILEINFO *) (ADR_DISKIMG + 0x002600);
-	int i, j;
-	char s[30];
-	for (i = 0; i < 224; i++) {
-		if (finfo[i].name[0] == 0x00) {
-			break;
-		}
-		if (finfo[i].name[0] != 0xe5) {
-			if ((finfo[i].type & 0x18) == 0) {
-				sprintf(s, "filename.ext %7d\n", finfo[i].size);
-				for (j = 0; j < 8; j++) {
-					s[j] = finfo[i].name[j];
-				}
-				s[ 9] = finfo[i].ext[0];
-				s[10] = finfo[i].ext[1];
-				s[11] = finfo[i].ext[2];
-				cons_putstr0(cons, s);
-			}
-		}
-	}
-	cons_newline(cons);
 	return;
 }
 
@@ -1062,3 +1071,357 @@ void Write()
 }
 
 
+/* 吴志恒 */
+void cmd_dir(struct CONSOLE *cons)					//*
+{
+
+	struct FILEINFO *finfo = cons->dir_info->adr_dir;
+	int i, j;
+	char s[30];
+	for (i = 0; i < cons->dir_info->maxsize; i++) {	//* maxsize为该目录下最大条目数 
+		if (finfo[i].name[0] == 0x00) {				//* 有效文件头信息末尾，finfo为当前目录下文件头信息的起始地址
+			break;
+		}
+		if (finfo[i].name[0] != 0xe5) {				//* 文件已删除		
+			if ((finfo[i].type & 0x08) == 0) {		//*2 显示（所有）文件 
+				sprintf(s, "filename.ext   %7d\n", finfo[i].size);
+				for (j = 0; j < 8; j++) {
+					s[j] = finfo[i].name[j];
+				}
+				if ((finfo[i].type & 0x10) != 0) {
+					s[9] = 'D';
+					s[10] = 'I';
+					s[11] = 'R';
+				}
+				else {
+					s[9] = finfo[i].ext[0];
+					s[10] = finfo[i].ext[1];
+					s[11] = finfo[i].ext[2];
+				}
+				cons_putstr0(cons, s);
+			}
+		}
+	}
+	cons_newline(cons);
+	return;
+}
+void cmd_ls(struct CONSOLE *cons)					//*
+{
+
+	struct FILEINFO *finfo = cons->dir_info->adr_dir;
+	int i, j;
+	char s[30];
+	for (i = 0; i < cons->dir_info->maxsize; i++) {	//* maxsize为该目录下最大条目数 
+		if (finfo[i].name[0] == 0x00) {				//* 有效文件头信息末尾，finfo为当前目录下文件头信息的起始地址
+			break;
+		}
+		if (finfo[i].name[0] != 0xe5) {				//* 文件已删除		
+			if ((finfo[i].type & 0x0a) == 0) {		//*2 显示（非隐藏）文件 
+				sprintf(s, "filename.ext   %7d\n", finfo[i].size);
+				for (j = 0; j < 8; j++) {
+					s[j] = finfo[i].name[j];
+				}
+				if ((finfo[i].type & 0x10) != 0) {
+					s[9] = 'D';
+					s[10] = 'I';
+					s[11] = 'R';
+				}
+				else {
+					s[9] = finfo[i].ext[0];
+					s[10] = finfo[i].ext[1];
+					s[11] = finfo[i].ext[2];
+				}
+				cons_putstr0(cons, s);
+			}
+		}
+	}
+	cons_newline(cons);
+	return;
+}
+
+void finfo_init(struct FILEINFO * finfo) {		// 初始化name和ext
+	int i;
+	for (i = 0; i < 8; i++) {
+		finfo->name[i] = ' ';
+	}
+	for (i = 0; i < 3; i++) {
+		finfo->ext[i] = ' ';
+	}
+	for (i = 0; i < 10; i++) {
+		finfo->reserve[i] = 0;
+	}
+	finfo->size = (unsigned int)0;
+	finfo->clustno = (unsigned short)0;
+	finfo->date = (unsigned short)0;
+	finfo->time = (unsigned short)0;
+	finfo->type = 0x00;
+}
+
+/* 创建目录 */									//**
+void cmd_mkd(struct CONSOLE *cons, int *fat, char *cmdline) {
+	cmdline += 4;
+	struct FILEINFO mkd;
+	int i;
+	char name[12];
+	for (i = 0;; i++) {								// 判断文件名是否过长
+		if (cmdline[i] == ' ' || cmdline[i] == 0) { break; }
+		if (i >= 8) {
+			cons_putstr0(cons, "file name too long!\n");
+			return;
+		}
+		name[i] = cmdline[i];
+	}
+	name[i] = 0;
+	struct FILEINFO *fifi = file_search(name, cons->dir_info->adr_dir, cons->dir_info->maxsize);
+	if (fifi != 0) {							// 文件（目录）存在
+		cons_putstr0(cons, "The file exits!");
+		return;
+	}
+	finfo_init(&mkd);
+	for (i = 0; i < 8; i++) {
+		if (cmdline[i] == 0 || cmdline[i] == ' ') { break; }
+		mkd.name[i] = cmdline[i];
+	}
+	if (cmdline[i] != 0) {		// 目录属性
+		if (cmdline[i + 1] == 'u') {	// 隐藏
+			mkd.type = 0x02 | 0x10;
+		}
+		else if (cmdline[i + 1] == ' ' || cmdline[i + 1] == 0) {
+			mkd.type = 0x10;
+		}
+		else {
+			mkd.type = 0x10;
+			cons_putstr0(cons, "type error\n");
+		}
+	}
+	else {													// 默认可读可写
+		mkd.type = 0x10;
+	}
+	fifi = file_addfile(cons->dir_info->adr_dir, &mkd, cons->dir_info->maxsize);
+	if (fifi == 0) {	// 目录增加失败
+		cons_putstr0(cons, "Can't add the file ");
+		cons_putstr0(cons, cmdline);
+		cons_newline(cons);
+	}
+	else {
+		/*
+		为文件目录分配扇区
+		决定该目录size
+		*/
+		int clustno = allo_fat(fat);
+		if (clustno == -1) {							//* 扇区分配失败
+			cons_putstr0(cons, "Cluster allocation failed!\n");
+			return;
+		}
+		else {
+			fifi->clustno = clustno;
+			fifi->size = 512;
+		}
+	}
+	// 写回磁盘
+	unsigned int size = cons->dir_info->maxsize * 32, clustno;
+	clustno = cons->dir_info->clustno;
+	dsk_fat_write(fat);
+	char res = dsk_write(fat, clustno, (char *)cons->dir_info->adr_dir, size);
+	if (res != 0) {
+		cons_putstr0(cons, "can not write disk!!\n");
+		return;
+	}
+	cons_putstr0(cons, "Adding successful.\n");
+	return;
+}
+
+/* 创建文件 */									//**
+void cmd_mkf(struct CONSOLE *cons, char *cmdline) {
+	cmdline += 4;
+	struct FILEINFO mkf;
+	int i, j;
+	char name[12];
+	for (i = 0;; i++) {								// 判断文件名是否过长
+		if (cmdline[i] == ' ' || cmdline[i] == 0) { break; }
+		if (i >= 12) {
+			cons_putstr0(cons, "file name too long!\n");
+			return;
+		}
+		name[i] = cmdline[i];
+	}
+	name[i] = 0;
+	struct FILEINFO *fifi = file_search(name, cons->dir_info->adr_dir, cons->dir_info->maxsize);
+	if (fifi != 0) {
+		cons_putstr0(cons, "file exits!");
+		return;
+	}
+	finfo_init(&mkf);
+	for (i = 0;; i++) {				// 文件名
+		if (cmdline[i] == ' ') { goto filtyp; }
+		if (cmdline[i] == '.') { break; }
+		if (cmdline[i] == 0) { goto write; }
+		if (i == 8) {
+			cons_putstr0(cons, "error! name too long!\n");
+			return;
+		}
+		mkf.name[i] = cmdline[i];
+	}
+	for (j = 0;; j++) {
+		if (cmdline[i + 1 + j] == ' ') { break; }
+		if (cmdline[i + 1 + j] == 0) { goto write; }
+		if (j == 3) {
+			cons_putstr0(cons, "error! suffix too long!\n");
+			return;
+		}
+		mkf.ext[j] = cmdline[i + j + 1];
+	}
+	i += j + 1;
+filtyp:
+	i++;
+	char type = get_type(cmdline + i);
+	if (type == 0x80) {
+		mkf.type = 0x00;
+		cons_putstr0(cons, "type error\n");
+	}
+	else if ((type & 0x10) != 0) {
+		cons_putstr0(cons, "get_type error!");
+		return;
+	}
+	else {
+		mkf.type = type;
+	}
+write:
+	fifi = file_addfile(cons->dir_info->adr_dir, &mkf, cons->dir_info->maxsize);
+	if (fifi == 0) {							// 增加失败
+		cons_putstr0(cons, "Can't add the file ");
+		cons_putstr0(cons, cmdline);
+	}
+	else {
+		cons_putstr0(cons, "Adding successful.\n");
+	}
+}
+
+/* 删除文件 */									//**
+void cmd_del(struct CONSOLE *cons, int *fat, char *cmdline) {
+	int i;
+	struct FILEINFO *delf;
+	char name[13];
+	/*根据命令行生成文件名*/
+	for (i = 0; i < 13; i++) {
+		if (cmdline[i + 4] <= ' ' || cmdline[i + 4] == 0) {
+			break;
+		}
+		name[i] = cmdline[i + 4];
+	}
+	name[i] = 0; /*暂且将文件名的后面置为0*/
+	delf = file_search(name, cons->dir_info->adr_dir, 224);
+	if (delf != 0) {
+		if (file_remove(fat, delf) == 0) {
+			cons_putstr0(cons, "Removing failed!\n");		// 删除失败
+			return;
+		}
+	}
+	else {
+		cons_putstr0(cons, "Can't find the file ");
+		cons_putstr0(cons, name);				// 删除失败
+		return;
+	}
+	// 写回磁盘
+	unsigned int size = cons->dir_info->maxsize * 32, clustno;
+	clustno = cons->dir_info->clustno;
+	dsk_fat_write(fat);
+	char res = dsk_write(fat, clustno, (char *)cons->dir_info->adr_dir, size);
+	if (res != 0) {
+		cons_putstr0(cons, "can not write disk!!\n");
+		return;
+	}
+	cons_putstr0(cons, "Delete successful.\n");
+}
+
+void cmd_cd(struct CONSOLE *cons, char *cmdline, int *fat) {
+	char comm[128];
+	int i;
+	for (i = 0; i < 128; ++i) {
+		comm[i] = 0;
+	}
+	cmdline += 3;
+	if (strcmp(cmdline, "../") == 0) { // 回到上层目录
+		cd_up(cons);
+	}
+	else if (strncmp(cmdline, "./", 2) == 0) {	// 跳转到当前目录的子目录
+		if (cd_down(cons, cmdline + 2, fat) != 0) {
+			cons_putstr0(cons, "path error!");
+			cons_newline(cons);
+		}
+	}
+	else {
+		cons_putstr0(cons, "Path error!\n");
+	}
+	cons_newline(cons);
+	return;
+}
+
+void cmd_finf(struct CONSOLE *cons, char *cmdline) {	// 查看文件属性
+	cmdline += 5;
+	struct FILEINFO *finfo = file_search(cmdline, cons->dir_info->adr_dir, cons->dir_info->maxsize);
+	if (finfo == 0) {
+		cons_putstr0(cons, "file not exits!\n");
+		return;
+	}
+	char line[30], type[4];
+	// filename
+	sprintf(line, "Name: %s", cmdline); //*??
+	cons_putstr0(cons, line);
+	cons_newline(cons);
+	// type
+	if ((finfo->type & 0x10) != 0) { type[0] = 'd'; }		// 文件或目录
+	else { type[0] = 'f'; }
+	if ((finfo->type & 0x01) != 0) { type[1] = 'r'; }	// 只读
+	else { type[1] = '-'; }
+	if ((finfo->type & 0x02) != 0) { type[2] = 'u'; }		// 隐藏
+	else { type[2] = '-'; }
+	type[3] = 0;
+	sprintf(line, "\tType: %s", type); //*??
+	cons_putstr0(cons, line);
+	cons_newline(cons);
+	// size
+	sprintf(line, "\tSize: %7d", finfo->size); //*??
+	cons_putstr0(cons, line);
+	cons_newline(cons);
+	//// time
+	//sprintf(line, "File: %7d", finfo->size); //*??
+	//cons_putstr0(cons, line);
+	//cons_newline;
+	return;
+}
+
+void cmd_infc(struct CONSOLE *cons, char *cmdline) {	// 文件属性修改
+	cmdline += 5;
+	char name[12], type;
+	int i;
+	for (i = 0;; i++) {
+		if (cmdline[i] == ' ') { break; }
+		if (cmdline[i] == 0) { return; }
+		if (i >= 12) {
+			cons_putstr0(cons, "name too long!");
+			return;
+		}
+		name[i] = cmdline[i];
+	}
+	name[i] = 0;
+	struct FILEINFO *finfo = file_search(name, cons->dir_info->adr_dir, cons->dir_info->maxsize);
+	if (finfo == 0) {
+		cons_putstr0(cons, "file not exits!\n");
+		return;
+	}
+	type = get_type(cmdline + 1 + i);
+	if ((type & 0x80) != 0) {
+		cons_putstr0(cons, "type error!");
+		return;
+	}
+	if ((finfo->type & 0x10) != 0) {
+		type |= 0x10;
+	}
+	finfo->type = type;
+
+	return;
+}
+//void cmd_edi(){ // 编辑文本
+//return;
+//}

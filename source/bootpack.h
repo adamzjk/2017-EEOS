@@ -17,7 +17,9 @@ void io_cli(void);
 void io_sti(void);
 void io_stihlt(void);
 int io_in8(int port);
+int io_in16(int port);		//*2
 void io_out8(int port, int data);
+void io_out16(int port, int data);//*2
 int io_load_eflags(void);
 void io_store_eflags(int eflags);
 void load_gdtr(int limit, int addr);
@@ -242,6 +244,7 @@ void inthandler20(int *esp);
 #define MAX_TASKS 1000	/*最大任务数量*/
 #define TASK_GDT0 3		/*定义从GDT的几号开始分配给TSS */
 #define MAX_TASKLEVELS  3
+#define MAX_FAT		2880	// 磁盘空间扇区数
 
 #define TASK_UNUSE 0
 #define TASK_IDLE 1
@@ -308,11 +311,56 @@ void make_wtitle8(unsigned short *buf, int xsize, char *title, char act);
 void putfonts8_asc_sht(struct SHEET *sht, int x, int y, int c, int b, char *s, int l);
 void make_textbox8(struct SHEET *sht, int x0, int y0, int sx, int sy, int c);
 
+/* file.c */
+#define DIR_MAXSIZE 224						//* 目录下文件信息数量上限
+struct FILEINFO {
+	unsigned char name[8], ext[3], type;
+	char reserve[10];
+	unsigned short time, date, clustno;
+	unsigned int size;
+};
+struct DIRINFO {							//* 当前目录信息
+	struct FILEINFO *adr_dir;				// 本级目录地址
+	struct DIRINFO *adr_parent;				// 上级目录地址
+	unsigned int clustno;					// 存放当前目录的起始扇区
+	unsigned int maxsize;					// 当前目录的最大finfo数
+	char name[9];							// 本级目录名
+};
+//-----------------disk-------------------
+void dskin(unsigned int cluster, unsigned int fatadr);
+void dskout(unsigned int cluster, unsigned int fatadr);
+char dsk_fat_read(int *fat);
+char dsk_fat_write(int *fat);
+char dsk_write(int *fat, unsigned int clustno, unsigned char *buf, unsigned int size);
+char dsk_read(int *fat, unsigned int clustno, unsigned char *buf, unsigned int size);
+
+/* tek.c */
+int tek_getsize(unsigned char *p);
+int tek_decomp(unsigned char *p, char *q, int size);
+
+void file_readfat(int *fat, unsigned char *img);
+void file_loadfile(int clustno, int size, char *buf, int *fat, char *img);
+char *file_loadfile2(int clustno, int *psize, int *fat);
+struct FILEINFO *file_search(char *name, struct FILEINFO *finfo, int max);
+void finfo_init(struct FILEINFO * finfo);					// FILEINFO初始化
+struct FILEINFO * file_addfile(struct FILEINFO *finfo, struct FILEINFO *af, int max);//*
+int file_remove(int *fat, struct FILEINFO *delf);			//
+//int file_writefile(int *fat, unsigned char *img, int clustno, struct FILEINFO *fileinf, int max);	//**
+int allo_fat(int *fat);										//
+void encoding_fat(int *fat, unsigned char *img_fat);		// fat编码
+int test_encoding(int *fat, char *img_fat);					// 测试encoding 不正确则返回零
+
 
 /* console.c */
 struct CONSOLE {
 	struct SHEET *sht;
 	int cur_x, cur_y, cur_c;
+	struct DIRINFO *dir_info;					//* 文件目录地址
+};
+struct FILEHANDLE {								//*3 -------
+	char *buf;
+	int size;
+	int pos;
 };
 void printmem(void);
 void console_task(struct SHEET *sheet, unsigned int memtotal);
@@ -323,30 +371,29 @@ void cons_putstr1(struct CONSOLE *cons, char *s, int l);
 void cons_runcmd(char *cmdline, struct CONSOLE *cons, int *fat, unsigned int memtotal);
 void cmd_mem(struct CONSOLE *cons, unsigned int memtotal);
 void cmd_cls(struct CONSOLE *cons);
-void cmd_dir(struct CONSOLE *cons);
+void cmd_dir(struct CONSOLE *cons);//wzh----
+void cmd_ls(struct CONSOLE *cons);
+void cmd_mkf(struct CONSOLE *cons, char *cmdline);			
+void cmd_mkd(struct CONSOLE *cons, int *fat, char *cmdline);
+void cmd_del(struct CONSOLE *cons, int *fat, char *cmdline);
+char get_type(char *cmdline);								 
+void cmd_cd(struct CONSOLE *cons, char *cmdline, int *fat);	
+void cmd_finf(struct CONSOLE *cons, char *cmdline);
+void cmd_infc(struct CONSOLE *cons, char *cmdline);
+void test_disk(struct CONSOLE *cons, int *fat);
+void show_fat(struct CONSOLE *cons, int *fat);
+void cmd_fat_test(struct CONSOLE *cons, int *fat);
 void cmd_type(struct CONSOLE *cons, int *fat, char *cmdline);
 int cmd_app(struct CONSOLE *cons, int *fat, char *cmdline);
 int *hrb_api(int edi, int esi, int ebp, int esp, int ebx, int edx, int ecx, int eax);
 int *inthandler0c(int *esp);
 int *inthandler0d(int *esp);
+// --- file.c
+char dsk_read0(struct CONSOLE *cons, int *fat, unsigned int clustno, unsigned char *buf, unsigned int size);
+char dsk_write0(struct CONSOLE *cons, int *fat, unsigned int clustno, unsigned char *buf, unsigned int size);
+void cd_up(struct CONSOLE *cons);
+int cd_down(struct CONSOLE *cons, char *dirname, int *fat);
 
-
-/* file.c */
-struct FILEINFO {
-	unsigned char name[8], ext[3], type;
-	char reserve[10];
-	unsigned short time, date, clustno;
-	unsigned int size;
-};
-
-/* tek.c */
-int tek_getsize(unsigned char *p);
-int tek_decomp(unsigned char *p, char *q, int size);
-
-void file_readfat(int *fat, unsigned char *img);
-void file_loadfile(int clustno, int size, char *buf, int *fat, char *img);
-char *file_loadfile2(int clustno, int *psize, int *fat);
-struct FILEINFO *file_search(char *name, struct FILEINFO *finfo, int max);
 
 /* Desktop */
 
