@@ -1,4 +1,4 @@
-# Experimental Operating System
+# Educational Operating System
 
 ​	This is an educational operating system designed by Zhang et al in May, 2017, Beijing University of Posts and Telecommunications. 北京邮电大学操作系统课程设计
 
