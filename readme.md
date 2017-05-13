@@ -31,6 +31,10 @@
 
 ​	For macOS or Linux users, you have to compile it with other compilers, download and install qemu, cd into source dir, type  ``qemu-system-i386 -fda haribote.img`` in bash.
 
+## Run with VMware
+
+​	Create a new virtual Machine using Floppy Image File ``haribote.img`` and boot it.
+
 ## Documentation
 
 ​	There is a 117 pages doc in Chinese, contact adamzjk@foxmail.com for details.
