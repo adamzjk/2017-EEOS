@@ -2,6 +2,10 @@
 
 ​	This is an educational operating system designed by Zhang et al in May, 2017, Beijing University of Posts and Telecommunications. 北京邮电大学操作系统课程设计
 
+## Demo
+
+![alt text](http://wx4.sinaimg.cn/large/98d135cfly1ffqmgs3xuzj20qm0k1njt.jpg)
+
 ## Features
 
 -  interrupt handling;
