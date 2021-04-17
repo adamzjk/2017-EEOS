@@ -39,9 +39,6 @@
 
 ​	Create a new virtual Machine using Floppy Image File ``haribote.img`` and boot it.
 
-## Documentation
-
-​	There is a 117 pages doc in Chinese, contact adamzjk@foxmail.com for details.
 
 
 
